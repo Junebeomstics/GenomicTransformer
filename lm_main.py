@@ -8,6 +8,7 @@ from util.args import LMArgument
 from util.losses import *
 import apex
 from pytorch_transformers import WarmupLinearSchedule
+from torch.utils.data.dataloader import DataLoader
 
 
 def get_model(args):
@@ -28,15 +29,10 @@ def get_model(args):
 
 
 def get_batchfier(args):
-    if args.dataset =='bugs':
-        train_batchfier = Lyrics_Batchfier([args.train_path], args.batch_size, seq_len=args.batch_seqlen,
-                                           padding_index=args.padding_index, epoch_shuffle=True)
-        test_batchfier = Lyrics_Batchfier([args.test_path], args.batch_size, seq_len=args.batch_seqlen,
-                                          padding_index=args.padding_index, epoch_shuffle=True)
-    else:
-        train_batchfier = BpttIterator(load_json(args.train_path), args.batch_size, args.batch_seqlen, device=args.device)
-        test_batchfier = BpttIterator(load_json(args.test_path), args.batch_size, args.batch_seqlen, device=args.device)
-    return train_batchfier, test_batchfier
+    train_batchfier = TrainingGeneDataset(args.data_path, args.block_size, args.mask_rate, device=args.device)
+    test_batchfier = TestGeneDataset(args.data_path, args.batch_size, args.mask_rate, device=args.device)
+    return DataLoader(train_batchfier, args.batch_size,collate_fn=train_batchfier.collate_fn),\
+           DataLoader(test_batchfier, args.batch_size,collate_fn=test_batchfier.collate_fn)
 
 
 def get_loss(args):
