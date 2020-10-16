@@ -12,17 +12,12 @@ from torch.utils.data.dataloader import DataLoader
 
 
 def get_model(args):
-    if args.kogpt:
-        model = KoGPTLM(args.experimental_loss, True, args.vocab_dict, args.tie_weight,
-                        cutoffs=args.cutoffs, padding_index=args.padding_index, scratch=args.scratch)
-    else:
-        model =Transformer_Model(args.vocab_size, args.batch_seqlen, args.hidden_dim, args.projection_dim, args.n_heads,
-                                 args.head_dim, args.n_layers, args.cutoffs, args.dropout_rate, args.dropatt_rate,
-                                 args.padding_index, pre_lnorm=args.pre_lnorm,
-                                 rel_att=args.relative_pos,experimental_loss=args.experimental_loss,
-                                 hierarchical=args.hierarchical)
-        initializer = Initializer('normal', 0.02, 0.1)
-        initializer.initialize(model)
+    model =Transformer_Model(args.vocab_size, args.batch_seqlen, args.hidden_dim, args.projection_dim, args.n_heads,
+                             args.head_dim, args.n_layers, args.dropout_rate, args.dropatt_rate,
+                             args.padding_index, pre_lnorm=args.pre_lnorm,
+                             rel_att=args.relative_pos)
+    initializer = Initializer('normal', 0.02, 0.1)
+    initializer.initialize(model)
 
     model = model.to(args.device)
     return model
@@ -31,15 +26,13 @@ def get_model(args):
 def get_batchfier(args):
     train_batchfier = TrainingGeneDataset(args.data_path, args.block_size, args.mask_rate, device=args.device)
     test_batchfier = TestGeneDataset(args.data_path, args.batch_size, args.mask_rate, device=args.device)
-    return DataLoader(train_batchfier, args.batch_size,collate_fn=train_batchfier.collate_fn),\
-           DataLoader(test_batchfier, args.batch_size,collate_fn=test_batchfier.collate_fn)
+    return DataLoader(train_batchfier, args.batch_size, shuffle=True, collate_fn=train_batchfier.collate_fn),\
+           DataLoader(test_batchfier, args.batch_size, shuffle=True, collate_fn=test_batchfier.collate_fn)
 
 
 def get_loss(args):
     lt = args.loss_type
-    if lt in ('experimental', 'experimental2'):
-        loss = FactorizedLoss(args.padding_index)
-    elif lt == 'plain':
+    if lt == 'plain':
         loss = PlainLoss(args.padding_index)
     else:
         raise NotImplementedError
@@ -47,10 +40,7 @@ def get_loss(args):
 
 
 def get_trainer(args, model, train_batchfier, test_batchfier):
-    if args.dataset == 'bugs':
-        optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
-    else:
-        optimizer = torch.optim.AdamW(model.parameters(), args.learning_rate, weight_decay=args.weight_decay)
+    optimizer = torch.optim.AdamW(model.parameters(), args.learning_rate, weight_decay=args.weight_decay)
     # optimizer = torch.optim.AdamW(model.parameters(), args.learning_rate, weight_decay=args.weight_decay)
     if args.mixed_precision:
         print('mixed_precision')
@@ -66,12 +56,9 @@ def get_trainer(args, model, train_batchfier, test_batchfier):
 
 if __name__ == '__main__':
     args = LMArgument()
-    print(args.learning_rate, 'experimental : {} cutoffs : {}'.format(
-        args.experimental_loss, len(args.cutoffs)))
     # print(args.__dict__)
     model = get_model(args)
     train_batchfier, test_batchfier = get_batchfier(args)
-    print(args.savename)
     trainer = get_trainer(args, model, train_batchfier, test_batchfier)
     prev_step = 0
     res = []

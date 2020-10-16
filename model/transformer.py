@@ -94,47 +94,28 @@ class Transformer_Model(Transformer_Base):
     def __init__(self, vocab_size:int, seq_len:int, hidden_dim: int, projection_dim: int,
                  n_heads: int, head_dim: int, n_layers:int,
                  dropout_rate: float, dropatt_rate: float, padding_index : int,
-                 pre_lnorm: bool = False, same_lengths:bool = False, rel_att=True,
-                 experimental_loss=False):
+                 pre_lnorm: bool = False, same_lengths:bool = False, rel_att=True,):
         super(Transformer_Model, self).__init__(vocab_size,seq_len,hidden_dim,projection_dim,n_heads,head_dim,
                                                 n_layers,dropout_rate,dropatt_rate,padding_index,pre_lnorm,
                                                 same_lengths,rel_att,Transformer_Block)
-        self.experimental_loss = experimental_loss
         self.final = nn.Linear(hidden_dim, vocab_size, bias=False)
 
-    def compute_hidden(self, x, mem, inp_lens, is_decoder=True):
+    def compute_hidden(self, x, mem):
         """
         :param x: input, input.size() = [batch_size, seq_len]
         :param mem: list of memories [mem1,mem2, ...memn], n equal to the number of layers
           memory[0].size() = [batch_size, memory_len, hidden_size]
         :return:
         """
-        def input_process(out, mem_i):
-            if self.rel_att:
-                main_inp = (out, mem_i, mask, pos_ebd, self.rr_bias, self.rw_bias)
-            elif self.hierarchical:
-                if isinstance(out,tuple):
-                    main_inp = out[:1] + (mem_i,) + out[2:]
-                    tomem = out[1]
-                else:
-                    main_inp = out, mem_i, mask, mask, torch.ones_like(mask[:,-1]).unsqueeze(-1).to(out.dtype), None, out
-                    tomem = out
-            else:
-                main_inp = out, mem_i, mask
-                tomem = out
-            return main_inp, tomem
-
-
-        inp_masks = mask_lengths(inp_lens, reverse=True).byte()
         emb, pos_ebd = self.get_emb(x,mem)
-        mask = self.get_mask(mem,inp_masks,is_decoder)
+        mask = torch.zeros_like(x)
         out = emb
         new_mem = []
         for i in range(self.n_layers):
             block = self.main_nets[i]
             mem_i = mem[i] if mem is not None else None
-            main_inp, mem_to_save = input_process(out, mem_i)
-            new_mem.append(mem_to_save)
+            main_inp = out, mem_i, mask
+            new_mem.append(out)
             out = block(main_inp)
             if isinstance(out,tuple) and out[-1] is None:
                 out = main_inp[-1]
@@ -142,53 +123,12 @@ class Transformer_Model(Transformer_Base):
         if isinstance(out, tuple):
             out = out[-1]
         return out, new_mem
-        # if self.hierarchical:
-        #     flag = False
-        #     initial_idx = BoundaryTransformer_Block.initialize_index(emb)
-        # for i in range(self.n_layers):
-        #     block = self.main_nets[i]
-        #     new_mem.append(out)
-        #     mem_i = mem[i] if mem is not None else None
-        #     main_inp = input_process(out, mem_i, block)
-        #     if isinstance(block,BoundaryTransformer_Block):
-        #         flag = True
-        #     out = block(main_inp)
-        #     if isinstance(block,BoundaryTransformer_Block):
-        #         total_out, out, prev_index, mask = out
-        #         if out is None:
-        #             break
-        # if self.hierarchical:
-        #     out = total_out
-        # out = self.dropout(out)
-        # return out, new_mem
-
-    def sampling(self, inp):
-        """
-            sampling when the model is trained with experimental loss
-        """
-        x, inp_lens, mem, sampling_mode, top_w, temperature = inp
-        bs, qs = x.size()
-        out, mem = self.compute_hidden(x,mem,inp_lens)
-        out = out[:, :-1]
-        out = out.contiguous().view(bs * (qs - 1), -1)
-        if sampling_mode:
-            ishard = True if sampling_mode ==1 else False
-            out = self.final.hard_cluster_logit(out, top_w, ishard, temperature)
-        else:
-            out = self.final.soft_cluster_logit(out)
-        return out, mem
 
     def forward(self, inp):
-        x, inp_lens, y, mem = inp
-        bs, qs = x.size()
-        out, mem = self.compute_hidden(x,mem,inp_lens)
-        out = out[:,:-1]
-        out = out.contiguous().view(bs*(qs-1),-1)
-        if self.experimental_loss:
-            y = y.contiguous().view(-1)
-            final = self.final(out,y)
-        else:
-            final = self.final(out)
+        x, ind ,mem = inp
+        out, mem = self.compute_hidden(x,mem)
+        out = out[ind]
+        final = self.final(out)
         return final, mem
 
 

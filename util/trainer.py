@@ -50,12 +50,6 @@ class Trainer:
         criteria = self.criteria
         optimizer = self.optimizers
         scheduler = self.schedulers
-        if isinstance(batchfier, IterableDataset):
-            batchfier = DataLoader(dataset=batchfier,
-                                   batch_size=batchfier.size,
-                                   shuffle=False,
-                                   collate_fn=batchfier.collate, )
-
         model.train()
         tot_loss, step_loss, tot_cnt, n_bar, acc = 0, 0, 0, 0, 0
         criteria.clear_loss()
@@ -114,12 +108,6 @@ class Trainer:
             _,criteria= self.criteria
         else:
             criteria = self.criteria
-        if isinstance(batchfier, IterableDataset):
-            batchfier = DataLoader(dataset=batchfier,
-                                   batch_size=batchfier.size,
-                                   shuffle=False,
-                                   collate_fn=batchfier.collate, )
-
         model.eval()
         criteria.clear_loss()
         pbar = tqdm(batchfier)
