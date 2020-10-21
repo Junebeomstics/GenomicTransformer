@@ -27,11 +27,10 @@ class LMArgument:
 
     def get_args(self, is_test=False):
         parser = argparse.ArgumentParser()
-        parser.add_argument("--filpath", type=str,
+        parser.add_argument("--filpath", type=str, default='temp.npy',
                             help='numpy arr path')
-        parser.add_argument("--vocab-size", type=int, default=30000)
         parser.add_argument('--saved-path', type=str)
-        parser.add_argument('--model-size', type=str)
+        parser.add_argument('--model-size', type=str, default='base')
         parser.add_argument("--loss-type", help="choice [plain, losses that will be implemented in the future]",
                             required=True, type=str)
         parser.add_argument('--pre-lnorm', action='store_true')
@@ -42,7 +41,7 @@ class LMArgument:
         dirname = os.path.join('data','saved_model')
         basename = '{}_{}'.format(data['model_size'], data['learning_rate'])
 
-        data['vocab_size'] = 4
+        data['vocab_size'] = 6
         data['padding_index'] = data['vocab_size']
         data['savename'] = os.path.join(dirname, basename)
 
