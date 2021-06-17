@@ -30,13 +30,6 @@ class Initializer:
             if hasattr(m, 'vec_v'):
                 self.init_weight(m.vec_v)
 
-        elif classname.find('StaticBoundaryDecision') != -1:
-            if hasattr(m, 'q'):
-                self.init_weight(m.q)
-
-        elif classname.find('Factorized_SoftmaxV2') != -1:
-            if hasattr(m, 'logits'):
-                self.init_weight(m.logits)
 
         elif classname.find('Transformer_Model') != -1:
             if hasattr(m, 'rw_bias'):

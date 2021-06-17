@@ -1,120 +1,146 @@
 import torch
+import math
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from model.ops import *
-from typing import Dict, Optional, Tuple, Any, List
+from torch.autograd import Variable
 
-class Word_Embedding(nn.Module):
-    def __init__(self,morph_size:int, pos_size:int, morph_lstm_hidden_size:int, morph_embedding_size:int,
-                 pos_embedding_size, cutoffs:list, div_val:int, dropout:float=0.0, adaptive_embedding=False):
-        super(Word_Embedding, self).__init__()
 
-        self.morph_size = morph_size
-        self.pos_size = pos_size
-        self.morph_embedding_size = morph_embedding_size
-        self.tag_embedding_size = pos_embedding_size
-        self.morph_hidden_size = morph_lstm_hidden_size
-        if not adaptive_embedding:
-            self.morph = nn.Embedding(morph_size+1,morph_embedding_size,morph_size)
+def conv_bn(inp, oup, stride):
+    return nn.Sequential(
+        nn.Conv3d(inp, oup, kernel_size=3, stride=stride, padding=(1, 1, 1), bias=False),
+        nn.BatchNorm3d(oup),
+        nn.ReLU6(inplace=True)
+    )
+
+
+def conv_1x1x1_bn(inp, oup):
+    return nn.Sequential(
+        nn.Conv3d(inp, oup, 1, 1, 0, bias=False),
+        nn.BatchNorm3d(oup),
+        nn.ReLU6(inplace=True)
+    )
+
+
+class InvertedResidual(nn.Module):
+    def __init__(self, inp, oup, stride, expand_ratio):
+        super(InvertedResidual, self).__init__()
+        self.stride = stride
+
+        hidden_dim = round(inp * expand_ratio)
+        self.use_res_connect = self.stride == (1, 1, 1) and inp == oup
+
+        if expand_ratio == 1:
+            self.conv = nn.Sequential(
+                # dw
+                nn.Conv3d(hidden_dim, hidden_dim, 3, stride, 1, groups=hidden_dim, bias=False),
+                nn.BatchNorm3d(hidden_dim),
+                nn.ReLU6(inplace=True),
+                # pw-linear
+                nn.Conv3d(hidden_dim, oup, 1, 1, 0, bias=False),
+                nn.BatchNorm3d(oup),
+            )
         else:
-            self.morph = Adaptive_Embedding(morph_size+1,morph_embedding_size,morph_embedding_size,cutoffs,div_val)
+            self.conv = nn.Sequential(
+                # pw
+                nn.Conv3d(inp, hidden_dim, 1, 1, 0, bias=False),
+                nn.BatchNorm3d(hidden_dim),
+                nn.ReLU6(inplace=True),
+                # dw
+                nn.Conv3d(hidden_dim, hidden_dim, 3, stride, 1, groups=hidden_dim, bias=False),
+                nn.BatchNorm3d(hidden_dim),
+                nn.ReLU6(inplace=True),
+                # pw-linear
+                nn.Conv3d(hidden_dim, oup, 1, 1, 0, bias=False),
+                nn.BatchNorm3d(oup),
+            )
 
-        self.pos = nn.Embedding(pos_size+1,pos_embedding_size,pos_size)
-        self.padding = nn.ConstantPad1d(3,0.0)
-        self.Ks = [2,3,4]
-
-        self.embedding_size = morph_lstm_hidden_size
-        # self.embedding_size = len(self.Ks) * filter_size + self.morph_embedding_size + self.tag_embedding_size
-        self.morph_rnn = nn.LSTM(morph_embedding_size+pos_embedding_size, morph_lstm_hidden_size, 1,
-                                 batch_first=True, bidirectional=False)
-        self.dropout = nn.Dropout(dropout)
-
-    def morph_embedding(self,morphs,tags, morphs_lens):
-        """
-
-        :param morphs: torch.Tensor size of [batch, sentence_length, word_length]
-        :param tags: torch.Tensor size of [batch, sentence_length, word_length]
-        :param morphs_lens: torch.Tensor size of [batch, sentence_length]
-        :return: torch.Tensor size of [batch,sentence_lengths,embedding_size]
-        """
-        b,s,w = morphs.size()
-        # print(morphs.size(),tags.size(),morphs_lens.size())
-        m = self.morph(morphs)
-        t = self.pos(tags)
-        c = torch.cat([m,t],-1) #[batch,sentence_lengths,word_lengths,embedding]
-        # c = c.sum(-2)
-        c = c.view(b*s,w,-1)
-        morphs_lens = morphs_lens.view(b*s)
-        lens_mask = mask_lengths(morphs_lens)
-        zero_up_morphs_lens = torch.max(morphs_lens,torch.ones_like(morphs_lens,dtype=morphs_lens.dtype))
-        rnned = run_rnn(c,zero_up_morphs_lens,self.morph_rnn)
-        rnned = rnned * lens_mask.to(rnned.dtype).unsqueeze(-1)
-
-        pooled = last_pool(rnned,zero_up_morphs_lens)
-        outs = pooled.view(b,s,-1)
-
-        return outs, rnned.view(b,s,w,-1)
-        # return c
-
-    def forward(self,morphs, pos, morphs_lens):
-        mres = self.morph_embedding(morphs, pos, morphs_lens)
-        # cres = self.character_embedding(characters,characters_lens)
-        # res = torch.cat([mres, cres],-1)
-        return mres
+    def forward(self, x):
+        if self.use_res_connect:
+            return x + self.conv(x)
+        else:
+            return self.conv(x)
 
 
-class Adaptive_Embedding(nn.Module):
-    def __init__(self, vocab_size:int, base_embedding_dim:int, projection_dim:int, cutoffs:List, div_val=1):
-        super(Adaptive_Embedding, self).__init__()
-        self.n_embeddings = len(cutoffs) + 1
-        self.projection_dim = projection_dim
-        self.scale = projection_dim**0.5
-        self.cutoffs = [0] + cutoffs + [vocab_size]
-        self.embedding_dims = [base_embedding_dim // (div_val**i) for i in range(self.n_embeddings)]
-        # print(self.embedding_dims)
-        self.embeddings = nn.ModuleList([nn.Embedding(self.cutoffs[i+1]-self.cutoffs[i],
-                                                      self.embedding_dims[i])
-                                         if i != self.n_embeddings - 1
-                                         else nn.Embedding(self.cutoffs[i+1]-self.cutoffs[i] + 1,
-                                                           self.embedding_dims[i],self.cutoffs[i+1]-self.cutoffs[i])# for UNK
-                                         for i in range(self.n_embeddings)])
-        self.proj = nn.ModuleList([nn.Linear(i,projection_dim) for i in self.embedding_dims])
+class MobileNetV2(nn.Module):
+    def __init__(self, last_channel, sample_size=224, width_mult=1.):
+        super(MobileNetV2, self).__init__()
+        block = InvertedResidual
+        input_channel = 4
+        last_channel = last_channel
+        interverted_residual_setting = [
+            # t, c, n, s
+            [1,  8, 1, (1,1,1)],
+            [6,  12, 2, (2,2,2)],
+            [6,  16, 2, (2,2,2)],
+        ]
+        # interverted_residual_setting = [
+        #     # t, c, n, s
+        #     [1, 8, 1, (1, 1, 1)],
+        #     [6, 12, 2, (2, 2, 2)],
+        #     [6, 16, 2, (2, 2, 2)],
+        #     [6, 32, 3, (2, 2, 2)],
+        #     [6, 48, 2, (1, 1, 1)],
+        # ]
 
-    def forward(self,x):
-        flat_x = x.view(-1)
-        total_embedding = torch.zeros(flat_x.size(0),self.projection_dim)
-        for i in range(self.n_embeddings):
-            l,r = self.cutoffs[i], self.cutoffs[i+1]
-            if i == self.n_embeddings - 1:
-                r +=1
-            mask = (flat_x >=l) & (flat_x<r)
-            indices = mask.nonzero().squeeze()
-            if indices.numel() == 0:
-                continue
-            x_i = flat_x[indices] - l
-            target_embedding = self.embeddings[i](x_i)
-            projected_embedding = self.proj[i](target_embedding)
-            total_embedding[indices] = projected_embedding
-        total_embedding = total_embedding.view(*x.size(), self.projection_dim)
-        total_embedding.mul_(self.scale)
-        return total_embedding
+        # building first layer
+        assert sample_size % 16 == 0.
+        input_channel = int(input_channel * width_mult)
+        self.last_channel = int(last_channel * width_mult) if width_mult > 1.0 else last_channel
+        self.features = [conv_bn(1, input_channel, (1, 2, 2))]
+        # building inverted residual blocks
+        for t, c, n, s in interverted_residual_setting:
+            output_channel = int(c * width_mult)
+            for i in range(n):
+                stride = s if i == 0 else (1, 1, 1)
+                self.features.append(block(input_channel, output_channel, stride, expand_ratio=t))
+                input_channel = output_channel
+        # building last several layers
+        self.features.append(conv_1x1x1_bn(input_channel, self.last_channel))
+        # make it nn.Sequential
+        self.features = nn.Sequential(*self.features)
+
+        self._initialize_weights()
+
+    def forward(self, x):
+        x = self.features(x)
+        x = F.avg_pool3d(x, x.data.size()[-3:])
+        x = x.view(x.size(0), -1)
+        return x
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv3d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm3d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                n = m.weight.size(1)
+                m.weight.data.normal_(0, 0.01)
+                m.bias.data.zero_()
 
 
-class Position_Embedding(nn.Module):
-    def __init__(self, embedding_dim:int):
-        super(Position_Embedding, self).__init__()
+def get_fine_tuning_parameters(model, ft_portion):
+    if ft_portion == "complete":
+        return model.parameters()
 
-        self.embedding_dim = embedding_dim
+    elif ft_portion == "last_layer":
+        ft_module_names = []
+        ft_module_names.append('classifier')
 
-        inv_freq = 1 / (10000 ** (torch.arange(0.0, embedding_dim, 2.0) / embedding_dim))
-        self.register_buffer('inv_freq', inv_freq)
+        parameters = []
+        for k, v in model.named_parameters():
+            for ft_module in ft_module_names:
+                if ft_module in k:
+                    parameters.append({'params': v})
+                    break
+            else:
+                parameters.append({'params': v, 'lr': 0.0})
+        return parameters
 
-    def forward(self, pos_seq):
-        # pos_seq.size() = (query_lengths)
-        if len(pos_seq.size()) ==1:
-            sinusoid = torch.ger(pos_seq, self.inv_freq)
-        elif len(pos_seq.size()) ==2:
-            sinusoid = torch.einsum('ab,c->abc',pos_seq,self.inv_freq)
-        pos_emb = torch.cat([sinusoid.sin(), sinusoid.cos()], dim=-1)
-        return pos_emb
+    else:
+        raise ValueError("Unsupported ft_portion: 'complete' or 'last_layer' expected")
+

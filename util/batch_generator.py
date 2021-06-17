@@ -5,8 +5,23 @@ import torch
 import os
 import pickle
 from abc import *
-from torch.utils.data.dataset import Dataset
+from torch.utils.data.dataset import Dataset, IterableDataset
 import math
+
+
+class DummyDataset(IterableDataset):
+    def __init__(self,
+                 batch_size: int = 2, device='cuda'):
+        self.batch_size = batch_size
+        self.device = device
+
+    def __len__(self):
+        return 10000
+
+    def __iter__(self):
+        for i in range(len(self)):
+            data = torch.randn((self.batch_size, 10, 32, 32, 32))
+            yield data[:,:-1].to(self.device), data[:,1:].to(self.device)
 
 
 class GeneDataset(Dataset):
