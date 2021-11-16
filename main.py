@@ -2,7 +2,7 @@ from model.transformer import *
 from util.batch_generator import *
 from util.files import *
 from util.initializer import *
-from util.trainer import Trainer
+from util.trainer import *
 import os
 from util.args import Argument
 from util.losses import *
@@ -11,8 +11,8 @@ from pytorch_transformers import WarmupLinearSchedule
 
 
 def get_model(args):
-    model =TransformerModel(args.image_size, args.hidden_dim, args.projection_dim, args.n_heads,
-                            args.head_dim, args.n_layers, args.dropout_rate, args.dropatt_rate)
+    model = BaseTransformerNet(args.image_size, args.hidden_dim, args.projection_dim, args.n_heads,
+                               args.head_dim, args.n_layers, args.dropout_rate, args.dropatt_rate)
     initializer = Initializer('normal', 0.02, 0.1)
     initializer.initialize(model)
 
@@ -26,11 +26,6 @@ def get_batchfier(args):
     return train_batchfier, test_batchfier
 
 
-def get_loss(args):
-    loss = PlainLoss()
-    return loss
-
-
 def get_trainer(args, model, train_batchfier, test_batchfier):
     optimizer = torch.optim.Adam(model.parameters(), args.learning_rate, weight_decay=args.weight_decay)
     if args.mixed_precision:
@@ -39,8 +34,7 @@ def get_trainer(args, model, train_batchfier, test_batchfier):
         model, optimizer = apex.amp.initialize(model, optimizer, opt_level=opt_level)
     decay_step = len(train_batchfier) * args.n_epoch // args.update_step
     scheduler = WarmupLinearSchedule(optimizer, args.warmup_step, decay_step)
-    criteria = get_loss(args)
-    trainer = Trainer(model, train_batchfier, test_batchfier, optimizer, scheduler, args.update_step, criteria,
+    trainer = PretrainTrainer(model, train_batchfier, test_batchfier, optimizer, scheduler, args.update_step,
                       args.clip_norm, args.mixed_precision)
     return trainer
 

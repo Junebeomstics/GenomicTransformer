@@ -16,12 +16,30 @@ class BaseLoss(_Loss):
         self.cum_loss = 0
 
 
-class PlainLoss(BaseLoss):
+class PretrainLoss(BaseLoss):
     def __init__(self,):
-        super(PlainLoss, self).__init__()
+        super(PretrainLoss, self).__init__()
         self.criteria = torch.nn.MSELoss()
 
     def forward(self, y_hat, y):
+        l = self.criteria(y_hat,y)
+        self.cum_loss +=l
+        return l
+
+    def get_description(self, step):
+        tok_loss = self.cum_loss
+        desc = " token loss : %f" % (
+            tok_loss / step)
+        return desc
+
+
+class ClassificationLoss(BaseLoss):
+    def __init__(self,):
+        super(ClassificationLoss, self).__init__()
+        self.criteria = torch.nn.CrossEntropyLoss()
+
+    def forward(self, y_hat, y):
+        y_hat = y_hat[:, 0]
         l = self.criteria(y_hat,y)
         self.cum_loss +=l
         return l

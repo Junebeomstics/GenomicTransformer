@@ -10,7 +10,7 @@ import os
 
 class Trainer:
     def __init__(self, model, train_batchfier, test_batchfier, optimizers, schedulers,
-                 update_step, criteria, clip_norm, mixed_precision):
+                 update_step, clip_norm, mixed_precision, criteria):
         self.model = model
         self.train_batchfier = train_batchfier
         self.test_batchfier = test_batchfier
@@ -83,7 +83,7 @@ class Trainer:
         batchfier = self.test_batchfier
 
         model.eval()
-        criteria.clear_loss()
+        self.criteria.clear_loss()
         pbar = tqdm(batchfier)
         pbar_cnt = 0
         step_loss = 0
@@ -91,10 +91,10 @@ class Trainer:
         for inp in pbar:
             with torch.no_grad():
                 logits = model(inp[0])
-                loss = criteria(logits, inp[-1])
+                loss = self.criteria(logits, inp[-1])
                 step_loss += loss.item()
                 pbar_cnt += 1
-                description = criteria.get_description(pbar_cnt)
+                description = self.criteria.get_description(pbar_cnt)
                 pbar.set_description(description)
         pbar.close()
         return math.exp(step_loss / pbar_cnt)
@@ -102,3 +102,17 @@ class Trainer:
     def update_description(self, description, n_bar):
         description += 'lr : %f, iter : %d ' %(self.schedulers.get_last_lr()[0], n_bar)
         return description
+
+
+class PretrainTrainer(Trainer):
+    def __init__(self, model, train_batchfier, test_batchfier, optimizers, schedulers,
+                 update_step, clip_norm, mixed_precision):
+        super(PretrainTrainer, self).__init__(model, train_batchfier, test_batchfier, optimizers, schedulers,
+                 update_step, clip_norm, mixed_precision, PretrainLoss())
+
+
+class ClassificationTrainer(Trainer):
+    def __init__(self, model, train_batchfier, test_batchfier, optimizers, schedulers,
+                 update_step, clip_norm, mixed_precision):
+        super(ClassificationTrainer, self).__init__(model, train_batchfier, test_batchfier, optimizers, schedulers,
+                 update_step, clip_norm, mixed_precision, ClassificationLoss())
