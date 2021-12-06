@@ -2,16 +2,20 @@ from model.transformer import *
 from util.batch_generator import *
 from util.files import *
 from util.initializer import *
-from util.trainer import *
+#from util.trainer import *
+
 import os
 from util.args import Argument
 from util.losses import *
 import apex
 from pytorch_transformers import WarmupLinearSchedule
 
+from transformers import Trainer
+from transformers import TrainingArguments
+
 
 def get_model(args):
-    model = BaseTransformerNet(args.image_size, args.hidden_dim, args.projection_dim, args.n_heads,
+    model = CNNTransformerNet(args.image_size, args.hidden_dim, args.projection_dim, args.n_heads,
                                args.head_dim, args.n_layers, args.dropout_rate, args.dropatt_rate)
     initializer = Initializer('normal', 0.02, 0.1)
     initializer.initialize(model)
@@ -21,8 +25,8 @@ def get_model(args):
 
 
 def get_batchfier(args):
-    train_batchfier = DummyDataset(args.batch_size, device=args.device)
-    test_batchfier = DummyDataset(args.batch_size, device=args.device)
+    train_batchfier = BrainDataset(args.batch_size, device=args.device)
+    test_batchfier = BrainDataset(args.batch_size, device=args.device)
     return train_batchfier, test_batchfier
 
 
@@ -34,8 +38,35 @@ def get_trainer(args, model, train_batchfier, test_batchfier):
         model, optimizer = apex.amp.initialize(model, optimizer, opt_level=opt_level)
     decay_step = len(train_batchfier) * args.n_epoch // args.update_step
     scheduler = WarmupLinearSchedule(optimizer, args.warmup_step, decay_step)
-    trainer = PretrainTrainer(model, train_batchfier, test_batchfier, optimizer, scheduler, args.update_step,
-                      args.clip_norm, args.mixed_precision)
+    #trainer = PretrainTrainer(model, train_batchfier, test_batchfier, optimizer, scheduler, args.update_step,
+    #                  args.clip_norm, args.mixed_precision)
+    
+    # Huggingface trainer
+    training_args = TrainingArguments(
+        output_dir='./',
+        num_train_epochs=args.n_epoch,
+        per_device_train_batch_size=args.batch_size, #config.batch_size_per_device,
+        per_device_eval_batch_size=args.batch_size, #config.batch_size_per_device,
+        warmup_steps=args.warmup_step, # n_warmup_steps,
+        weight_decay=args.weight_decay,
+        fp16=True,
+        evaluation_strategy='epoch',
+        #logging_steps=n_total_iterations // 100,
+        #save_steps=n_total_iterations // config.n_epochs,
+        load_best_model_at_end=True,
+    )
+
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_batchfier,
+        eval_dataset=test_batchfier,
+        optimizers = (optimizer, scheduler),
+        # compute_metrics=compute_metrics,
+    )
+    
+
     return trainer
 
 
@@ -44,6 +75,13 @@ if __name__ == '__main__':
     model = get_model(args)
     train_batchfier, test_batchfier = get_batchfier(args)
     trainer = get_trainer(args, model, train_batchfier, test_batchfier)
+    trainer.train()
+    #torch.save({
+    #    'bert': trainer.model.state_dict(),
+    #    'args': args
+    #})
+
+    '''
     prev_step = 0
     res = []
 
@@ -61,3 +99,4 @@ if __name__ == '__main__':
         torch.save(model.state_dict(),savepath)
         #test
     print(res)
+    '''

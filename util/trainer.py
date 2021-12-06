@@ -48,7 +48,7 @@ class Trainer:
         for inp in batchfier:
             logits = model(inp[0])
 
-            # print(logits)
+            print('logit_shape:',logits.shape)
             loss = criteria(logits, inp[-1])
 
             # print(logits)

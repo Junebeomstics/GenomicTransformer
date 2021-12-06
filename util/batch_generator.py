@@ -1,4 +1,3 @@
-import pandas as pd
 import random
 import numpy as np
 import torch
@@ -8,6 +7,20 @@ from abc import *
 from torch.utils.data.dataset import Dataset, IterableDataset
 import math
 
+
+class BrainDataset(IterableDataset):
+    def __init__(self,
+                 batch_size: int = 2, device='cuda'):
+        self.batch_size = batch_size
+        self.device = device
+
+    def __len__(self):
+        return 10000
+
+    def __iter__(self):
+        for i in range(len(self)):
+            data = torch.randn((self.batch_size,10,20,20,20)) # 383, 97, 115, 95))
+            yield data[:,:-1].to(self.device), data[:,1:].to(self.device)
 
 class DummyDataset(IterableDataset):
     def __init__(self,
