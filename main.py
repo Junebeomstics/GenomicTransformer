@@ -2,7 +2,7 @@ from model.transformer import *
 from util.batch_generator import *
 from util.files import *
 from util.initializer import *
-#from util.trainer import *
+from util.trainer import CustomTrainer
 
 import os
 from util.args import Argument
@@ -19,23 +19,21 @@ def get_model(args):
                                args.head_dim, args.n_layers, args.dropout_rate, args.dropatt_rate)
     initializer = Initializer('normal', 0.02, 0.1)
     initializer.initialize(model)
-
-    model = model.to(args.device)
     return model
 
 
 def get_batchfier(args):
-    train_batchfier = BrainDataset(args.batch_size, device=args.device)
-    test_batchfier = BrainDataset(args.batch_size, device=args.device)
+    train_batchfier = BrainDataset(args.batch_size)
+    test_batchfier = BrainDataset(args.batch_size)
     return train_batchfier, test_batchfier
 
 
 def get_trainer(args, model, train_batchfier, test_batchfier):
     optimizer = torch.optim.Adam(model.parameters(), args.learning_rate, weight_decay=args.weight_decay)
-    if args.mixed_precision:
-        print('mixed_precision')
-        opt_level = 'O2'
-        model, optimizer = apex.amp.initialize(model, optimizer, opt_level=opt_level)
+    #if args.mixed_precision:
+    #    print('mixed_precision')
+    #    opt_level = 'O2'
+    #    model, optimizer = apex.amp.initialize(model, optimizer, opt_level=opt_level)
     decay_step = len(train_batchfier) * args.n_epoch // args.update_step
     scheduler = WarmupLinearSchedule(optimizer, args.warmup_step, decay_step)
     #trainer = PretrainTrainer(model, train_batchfier, test_batchfier, optimizer, scheduler, args.update_step,
@@ -45,9 +43,8 @@ def get_trainer(args, model, train_batchfier, test_batchfier):
     training_args = TrainingArguments(
         output_dir='./',
         num_train_epochs=args.n_epoch,
-        per_device_train_batch_size=args.batch_size, #config.batch_size_per_device,
-        per_device_eval_batch_size=args.batch_size, #config.batch_size_per_device,
-        warmup_steps=args.warmup_step, # n_warmup_steps,
+        per_device_train_batch_size=args.batch_size, 
+        per_device_eval_batch_size=args.batch_size, 
         weight_decay=args.weight_decay,
         fp16=True,
         evaluation_strategy='epoch',
@@ -57,9 +54,10 @@ def get_trainer(args, model, train_batchfier, test_batchfier):
     )
 
 
-    trainer = Trainer(
+    trainer = CustomTrainer(
         model=model,
         args=training_args,
+        data_collator=None,
         train_dataset=train_batchfier,
         eval_dataset=test_batchfier,
         optimizers = (optimizer, scheduler),
@@ -76,6 +74,8 @@ if __name__ == '__main__':
     train_batchfier, test_batchfier = get_batchfier(args)
     trainer = get_trainer(args, model, train_batchfier, test_batchfier)
     trainer.train()
+
+
     #torch.save({
     #    'bert': trainer.model.state_dict(),
     #    'args': args

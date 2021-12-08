@@ -9,8 +9,8 @@ from model.upnet import *
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, hidden_dim: int, projection_dim: int, n_heads: int, head_dim: int,
-                 dropout_rate: float, dropatt_rate: float, pre_lnorm: bool = False):
+    def __init__(self, hidden_dim, projection_dim, n_heads, head_dim,
+                 dropout_rate, dropatt_rate, pre_lnorm = False):
         super(TransformerBlock, self).__init__()
         self.multihead_att = Multihead_Att(hidden_dim, n_heads, head_dim, dropout_rate, dropatt_rate, pre_lnorm)
         self.feedforward = Residual_FF(hidden_dim, projection_dim, dropout_rate, pre_lnorm)
@@ -23,10 +23,10 @@ class TransformerBlock(nn.Module):
 
 
 class TransformerBase(nn.Module):
-    def __init__(self, hidden_dim: int, projection_dim: int,
-                 n_heads: int, head_dim: int, n_layers: int,
-                 dropout_rate: float, dropatt_rate: float,
-                 pre_lnorm: bool = False,
+    def __init__(self, hidden_dim, projection_dim,
+                 n_heads, head_dim, n_layers,
+                 dropout_rate, dropatt_rate,
+                 pre_lnorm = False,
                  transformer_type=TransformerBlock):
         super(TransformerBase, self).__init__()
         self.n_layers = n_layers
@@ -54,10 +54,10 @@ class TransformerBase(nn.Module):
 
 
 class CNNTransformerNet(nn.Module):
-    def __init__(self, image_size, hidden_dim: int, projection_dim: int,
-                 n_heads: int, head_dim: int, n_layers: int,
-                 dropout_rate: float, dropatt_rate: float,
-                 pre_lnorm: bool = False):
+    def __init__(self, image_size, hidden_dim, projection_dim,
+                 n_heads, head_dim, n_layers,
+                 dropout_rate, dropatt_rate,
+                 pre_lnorm = False):
         super(CNNTransformerNet, self).__init__()
         self.n_layers = n_layers
         self.embedding = MobileNetV2(hidden_dim)
@@ -103,10 +103,10 @@ class CNNTransformerNet(nn.Module):
 
 
 class BaseTransformerNet(nn.Module):
-    def __init__(self, input_dim, hidden_dim: int, projection_dim: int,
-                 n_heads: int, head_dim: int, n_layers: int,
-                 dropout_rate: float, dropatt_rate: float,
-                 pre_lnorm: bool = False, mode='pretrain'):
+    def __init__(self, input_dim, hidden_dim, projection_dim,
+                 n_heads, head_dim, n_layers,
+                 dropout_rate, dropatt_rate,
+                 pre_lnorm = False, mode='pretrain'):
         super(BaseTransformerNet, self).__init__()
         self.mode = mode
         self.n_layers = n_layers
