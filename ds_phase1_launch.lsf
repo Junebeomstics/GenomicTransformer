@@ -1,0 +1,43 @@
+#!/bin/bash
+
+#BSUB -nnodes 1
+#BSUB -W 1:00
+#BSUB -P gen170
+#BSUB -alloc_flags "smt4 nvme"
+#BSUB -J CNN_lamb_phase1
+#BSUB -o CNN_lamb_phase1.%J
+#BSUB -q batch
+
+set +x
+
+# load modules and conda
+module load open-ce
+conda deactivate
+conda activate /gpfs/wolf/gen170/world-shared/i0l/OPENCE
+#conda activate /gpfs/alpine/med106/world-shared/irl1/rhel8/opence_13_try2
+
+# export settings
+export TORCH_EXTENSIONS_DIR=$PWD/../deepspeed
+export HF_HOME=$PWD/../hfdata
+export OMP_NUM_THREADS=1
+
+# grab nodecount
+nodes=($(cat ${LSB_DJOB_HOSTFILE} | sort | uniq | grep -v login | grep -v batch))
+nnodes=${#nodes[@]}
+
+# launch node config
+rm -f `find -name *lock`    # clear stale lock files
+
+jsrun --smpiargs="-disable_gpu_hooks" -n $nnodes -r 1 -g 6 -a 6 -c 42 python ./main_ds.py \
+   --output_dir ./outputs \
+   --savepath ./phase1 \
+   --deepspeed ds_phase1.json \
+   --do_train=True \
+   --per_device_train_batch_size 2 \
+   --max_steps 150 \
+   --warmup_steps 15 \
+   --learning_rate 0.001 \
+   --adam_beta2 0.98 \
+   --weight_decay 0.0000 \
+   --adam_epsilon 1e-8
+

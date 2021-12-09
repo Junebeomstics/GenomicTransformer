@@ -1,0 +1,32 @@
+{
+    "fp16": {
+        "enabled": true,
+        "loss_scale": 0,
+        "loss_scale_window": 1000,
+        "hysteresis": 2,
+        "min_loss_scale": 1
+    },
+
+    "optimizer": {
+        "type": "Lamb",
+        "params": {
+            "lr": "auto",
+            "betas": "auto",
+            "weight_decay": "auto",
+            "bias_correction": false,
+            "max_coeff": 0.3,
+            "min_coeff": 0.01
+        }
+    },
+
+    "scheduler": {
+        "type": "WarmupDecayLR",
+        "params": {
+            "total_num_steps": "auto",
+            "warmup_min_lr": 0,
+            "warmup_max_lr": "auto",
+            "warmup_num_steps": "auto"
+        }
+    }
+}
+
