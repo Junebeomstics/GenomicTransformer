@@ -10,6 +10,8 @@ import os
 from transformers import Trainer
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
+
+
 class CustomTrainer(Trainer):     
     def __init__(self,
         model = None,
@@ -23,15 +25,15 @@ class CustomTrainer(Trainer):
         callbacks = None,
         optimizers = (None, None)):
         super(CustomTrainer,self).__init__(model,args,data_collator,train_dataset,eval_dataset,tokenizer,model_init,compute_metrics,callbacks, optimizers)
-        self.deepspeed = None
+        #self.deepspeed = None
 
     def compute_loss(self, model, inputs, return_outputs=False):
         """
         How the loss is computed by Trainer. By default, all models return the loss in the first element.
         Subclass and override for custom behavior.
         """
-        inputs[0] = torch.reshape(inputs[0],(16,9,32,32,32))
-        inputs[1] = torch.reshape(inputs[1],(16,9,32,32,32))
+        #inputs[0] = torch.reshape(inputs[0],(2,9,32,32,32))
+        #inputs[1] = torch.reshape(inputs[1],(2,9,32,32,32))
         logits = model(inputs[0])
         criterion = MSELoss()
         loss = criterion(logits,inputs[-1])
@@ -49,43 +51,15 @@ class CustomTrainer(Trainer):
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
         '''
         return (loss, outputs) if return_outputs else loss
+
     def get_train_dataloader(self) -> DataLoader:
-        """
-        Returns the training :class:`~torch.utils.data.DataLoader`.
-        Will use no sampler if :obj:`self.train_dataset` does not implement :obj:`__len__`, a random sampler (adapted
-        to distributed training if necessary) otherwise.
-        Subclass and override this method if you want to inject some custom behavior.
-        """
+
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
-
-        train_dataset = self.train_dataset
-        #if is_datasets_available() and isinstance(train_dataset, datasets.Dataset):
-        #    train_dataset = self._remove_unused_columns(train_dataset, description="training")
-
-        if isinstance(train_dataset, torch.utils.data.IterableDataset):
-            '''
-            if self.args.world_size > 1:
-                train_dataset = IterableDatasetShard(
-                    train_dataset,
-                    batch_size=self.args.train_batch_size,
-                    drop_last=self.args.dataloader_drop_last,
-                    num_processes=self.args.world_size,
-                    process_index=self.args.process_index,
-                )
-            '''
-            return DataLoader(
-                train_dataset,
-                batch_size=self.args.train_batch_size,
-                collate_fn=None,
-                num_workers=self.args.dataloader_num_workers,
-                pin_memory=True #self.args.dataloader_pin_memory,
-            )
-
         train_sampler = self._get_train_sampler()
 
         return DataLoader(
-            train_dataset,
+            self.train_dataset,
             batch_size=self.args.train_batch_size,
             sampler=train_sampler,
             collate_fn=None,
@@ -93,6 +67,49 @@ class CustomTrainer(Trainer):
             num_workers=self.args.dataloader_num_workers,
             pin_memory=self.args.dataloader_pin_memory,
         )
+    #def get_train_dataloader(self) -> DataLoader:
+    #    """
+    #    Returns the training :class:`~torch.utils.data.DataLoader`.
+    #    Will use no sampler if :obj:`self.train_dataset` does not implement :obj:`__len__`, a random sampler (adapted
+    #    to distributed training if necessary) otherwise.
+    #    Subclass and override this method if you want to inject some custom behavior.
+    #    """
+    #    if self.train_dataset is None:
+    #        raise ValueError("Trainer: training requires a train_dataset.")
+
+    #    train_dataset = self.train_dataset
+    #    #if is_datasets_available() and isinstance(train_dataset, datasets.Dataset):
+    #    #    train_dataset = self._remove_unused_columns(train_dataset, description="training")
+
+    #    if isinstance(train_dataset, torch.utils.data.IterableDataset):
+    #        if self.args.world_size > 1:
+    #            train_dataset = IterableDatasetShard(
+    #                train_dataset,
+    #                batch_size=self.args.train_batch_size,
+    #                drop_last=self.args.dataloader_drop_last,
+    #                num_processes=self.args.world_size,
+    #                process_index=self.args.process_index,
+    #            )
+
+    #        return DataLoader(
+    #            train_dataset,
+    #            batch_size=self.args.train_batch_size,
+    #            collate_fn=None,
+    #            num_workers=self.args.dataloader_num_workers,
+    #            pin_memory=True #self.args.dataloader_pin_memory,
+    #        )
+
+    #    train_sampler = self._get_train_sampler()
+
+    #    return DataLoader(
+    #        train_dataset,
+    #        batch_size=self.args.train_batch_size,
+    #        sampler=train_sampler,
+    #        collate_fn=None,
+    #        drop_last=self.args.dataloader_drop_last,
+    #        num_workers=self.args.dataloader_num_workers,
+    #        pin_memory=self.args.dataloader_pin_memory,
+    #    )
 
     def get_eval_dataloader(self, eval_dataset: Optional[Dataset] = None) -> DataLoader:
         """
@@ -181,6 +198,15 @@ class CustomTrainer(Trainer):
             drop_last=self.args.dataloader_drop_last,
             pin_memory=self.args.dataloader_pin_memory,
         )
+    #def _prepare_inputs(self, inputs: Dict[str, Union[torch.Tensor, Any]]) -> Dict[str, Union[torch.Tensor, Any]]:
+    #    for k, v in inputs.items():
+    #        if isinstance(v, torch.Tensor):
+    #            inputs[k] = v.to(self.args.device)
+
+    #    if self.args.past_index >= 0 and self._past is not None:
+    #        inputs["mems"] = self._past
+
+    #    return inputs
     def _prepare_input(self, data: Union[torch.Tensor, Any]) -> Union[torch.Tensor, Any]:
         """
         Prepares one :obj:`data` before feeding it to the model, be it a tensor or a nested list/dictionary of tensors.
@@ -195,7 +221,7 @@ class CustomTrainer(Trainer):
                 # NLP models inputs are int64 and those get adjusted to the right dtype of the
                 # embedding. Other models such as wav2vec2's inputs are already float and thus
                 # may need special handling to match the dtypes of the model
-                kwargs.update(dict(dtype=self.args.hf_deepspeed_config.dtype()))
+                kwargs.update(dict(dtype=torch.float16))
             return data.to(**kwargs)
         return data
 

@@ -8,17 +8,17 @@ from torch.utils.data.dataset import Dataset, IterableDataset
 import math
 
 class BrainDataset(IterableDataset):
-    def __init__(self,
-                 batch_size: int = 2):
-        self.batch_size = batch_size
+    def __init__(self):
+        pass
+        #super(self).__init__()
 
     def __len__(self):
         return 10000
 
     def __iter__(self):
         for i in range(len(self)):
-            data = torch.randn((self.batch_size,10,32,32,32)) # 383, 97, 115, 95))
-            yield data[:,:-1], data[:,1:]
+            data = torch.randn((10,32,32,32)) # 383, 97, 115, 95))
+            yield data[:-1], data[1:]
 
 class DummyDataset(IterableDataset):
     def __init__(self,
