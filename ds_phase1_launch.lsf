@@ -12,6 +12,9 @@ set +x
 
 # load modules and conda
 module load open-ce
+module avail
+#module load nsight-compute
+module load nsight-systems
 conda deactivate
 conda activate /gpfs/wolf/gen170/world-shared/i0l/OPENCE
 #conda activate /gpfs/alpine/med106/world-shared/irl1/rhel8/opence_13_try2
@@ -28,16 +31,19 @@ nnodes=${#nodes[@]}
 # launch node config
 rm -f `find -name *lock`    # clear stale lock files
 
-jsrun --smpiargs="-disable_gpu_hooks" -n $nnodes -r 1 -g 6 -a 6 -c 42 python ./main_ds.py \
+jsrun --smpiargs="-disable_gpu_hooks" -n $nnodes -r 1 -g 6 -a 6 -c 42 nsys profile --force-overwrite true -t cuda python ./main_ds.py \
    --output_dir ./outputs \
    --savepath ./phase1 \
    --deepspeed ds_phase1.json \
    --do_train=True \
-   --per_device_train_batch_size 2 \
-   --max_steps 150 \
+   --per_device_train_batch_size 4 \
+   --max_steps 10 \
    --warmup_steps 15 \
    --learning_rate 0.001 \
    --adam_beta2 0.98 \
    --weight_decay 0.0000 \
    --adam_epsilon 1e-8
+
+#nsys profile -o test_profile
+#nv-nsight-cu-cli --section SpeedOfLight -o analysis_$OMPI_COMM_WPRLD_RANK
 
