@@ -3,7 +3,7 @@ from torch.utils.data import IterableDataset, DataLoader, Dataset
 from torch.nn import MSELoss
 import math
 from model.ops import *
-from pytorch_transformers import WarmupLinearSchedule
+#from pytorch_transformers import WarmupLinearSchedule
 #import apex
 from util.losses import *
 import os
