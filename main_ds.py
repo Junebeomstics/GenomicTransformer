@@ -14,6 +14,13 @@ from transformers import HfArgumentParser
 
 from util.args import Argument
 
+#PYPROF STUFF
+#import torch.cuda.profiler as profiler
+#import pyprof
+#pyprof.init()
+
+os.environ["WANDB_DISABLED"] = "true"
+
 @dataclass
 class ModelArguments:
     """

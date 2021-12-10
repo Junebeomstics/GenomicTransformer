@@ -1,0 +1,44 @@
+#!/bin/bash
+
+#SBATCH -A ntrain9_g
+#SBATCH -C gpu
+#SBATCH -q regular
+#SBATCH -t 1:00:00
+#SBATCH -N 1
+#SBATCH --reservation gpu_Hackathon_20211209
+set +x
+
+# load modules and conda
+export NCCL_SOCKET_IFNAME=hsn
+source /global/common/software/nersc/shasta2105/python/3.8-anaconda-2021.05/etc/profile.d/conda.sh
+conda activate /pscratch/sd/t/train298/ds
+module load pytorch
+#conda activate /gpfs/alpine/med106/world-shared/irl1/rhel8/opence_13_try2
+
+# export settings
+export TORCH_EXTENSIONS_DIR=$PWD/deepspeed
+export HF_HOME=$PWD/hfdata
+#export OMP_NUM_THREADS=1
+
+# grab nodecount
+#nodes=($(cat ${LSB_DJOB_HOSTFILE} | sort | uniq | grep -v login | grep -v batch))
+# nnodes=${#nodes[@]}
+
+# launch node config
+#rm -f `find -name *lock`    # clear stale lock files
+
+ranks_per_node=4
+gpus_per_rank=$((4/$ranks_per_node))
+ranks_total=$(($ranks_per_node*$SLURM_JOB_NUM_NODES))
+
+#srun -u -n $ranks_total -c 32 --ntasks-per-node=$ranks_per_node --gpus-per-task=$gpus_per_rank bash -c "
+#source export_DDP_vars.sh
+#/pscratch/sd/t/train298/ds/bin/python main_ds.py --output_dir ./outputs --savepath ./phase1 --deepspeed ds_phase1.json --do_train=True --per_device_train_batch_size 2 --max_steps 150 --warmup_steps 15 --learning_rate 0.001 --adam_beta2 0.98 --weight_decay 0.0000 --adam_epsilon 1e-8"
+
+#srun -u -n $ranks_total -c 32 --ntasks-per-node=$ranks_per_node --gpus-per-task=$gpus_per_rank bash -c "
+#source export_DDP_vars.sh
+#nsys profile -f true -o net --export sqlite /pscratch/sd/t/train298/ds/bin/python main_ds.py --output_dir ./outputs --savepath ./phase1 --deepspeed ds_phase1.json --do_train=True --per_device_train_batch_size 2 --max_steps 150 --warmup_steps 15 --learning_rate 0.001 --adam_beta2 0.98 --weight_decay 0.0000 --adam_epsilon 1e-8"
+
+srun -u -n $ranks_total -c 32 --ntasks-per-node=$ranks_per_node --gpus-per-task=$gpus_per_rank bash -c "
+source export_DDP_vars.sh
+dlprof --mode=pytorch /pscratch/sd/t/train298/ds/bin/python main_ds.py --output_dir ./outputs --savepath ./phase1 --deepspeed ds_phase1.json --do_train=True --per_device_train_batch_size 2 --max_steps 150 --warmup_steps 15 --learning_rate 0.001 --adam_beta2 0.98 --weight_decay 0.0000 --adam_epsilon 1e-8"
