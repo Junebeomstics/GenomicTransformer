@@ -4,8 +4,11 @@
 #SBATCH -C gpu
 #SBATCH -q regular
 #SBATCH -t 1:00:00
-#SBATCH -N 1
-#SBATCH --reservation gpu_Hackathon_20211209
+#SBATCH -N 4
+#SBATCH --ntasks-per-node=4
+#SBATCH --gpus-per-node=4
+#SBATCH --exclusive
+#SBATCH --reservation gpu_Hackathon_20211210
 set +x
 
 # load modules and conda
@@ -13,8 +16,8 @@ export NCCL_SOCKET_IFNAME=hsn
 source /global/common/software/nersc/shasta2105/python/3.8-anaconda-2021.05/etc/profile.d/conda.sh
 conda activate /global/cfs/cdirs/ntrain9/4DBrainTransformer/deepspeed
 #conda activate /global/cfs/cdirs/ntrain9/4DBrainTransformer/DS_DLPROF
-module load pytorch
 #conda activate /gpfs/alpine/med106/world-shared/irl1/rhel8/opence_13_try2
+module load pytorch
 pip install deepspeed
 pip install transformers==4.5.1
 
@@ -43,6 +46,6 @@ ranks_total=$(($ranks_per_node*$SLURM_JOB_NUM_NODES))
 #source export_DDP_vars.sh
 #nsys profile -f true -o net --export sqlite /pscratch/sd/t/train298/ds/bin/python main_ds.py --output_dir ./outputs --savepath ./phase1 --deepspeed ds_phase1.json --do_train=True --per_device_train_batch_size 2 --max_steps 150 --warmup_steps 15 --learning_rate 0.001 --adam_beta2 0.98 --weight_decay 0.0000 --adam_epsilon 1e-8"
 
-srun -u -n $ranks_total -c 32 --ntasks-per-node=$ranks_per_node --gpus-per-task=$gpus_per_rank bash -c "
+srun -u -N 4 -n $ranks_total --ntasks-per-node=4 --gpus-per-task=1 -c 16 bash -c "
 source export_DDP_vars.sh
-dlprof --mode=pytorch /global/cfs/cdirs/ntrain9/4DBrainTransformer/deepspeed/bin/python main_ds.py --output_dir ./outputs --savepath ./phase1 --deepspeed ds_phase1.json --do_train=True --per_device_train_batch_size 2 --max_steps 150 --warmup_steps 15 --learning_rate 0.001 --adam_beta2 0.98 --weight_decay 0.0000 --adam_epsilon 1e-8"
+ /global/cfs/cdirs/ntrain9/4DBrainTransformer/deepspeed/bin/python main_ds.py --output_dir ./outputs --savepath ./phase1 --deepspeed ds_phase1.json --do_train=True --per_device_train_batch_size 1 --max_steps 150 --warmup_steps 15 --learning_rate 0.001 --adam_beta2 0.98 --weight_decay 0.0000 --adam_epsilon 1e-8"

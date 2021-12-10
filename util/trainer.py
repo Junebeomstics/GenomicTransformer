@@ -34,6 +34,7 @@ class CustomTrainer(Trainer):
         """
         #inputs[0] = torch.reshape(inputs[0],(2,9,32,32,32))
         #inputs[1] = torch.reshape(inputs[1],(2,9,32,32,32))
+        print(torch.cuda.memory_summary(device=None, abbreviated=False))
         logits = model(inputs[0])
         criterion = MSELoss()
         loss = criterion(logits,inputs[-1])

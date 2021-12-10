@@ -46,6 +46,11 @@ def get_batchfier():
     train_batchfier = BrainDataset()
     test_batchfier = BrainDataset()
     return train_batchfier, test_batchfier
+def count_parameters(model):
+    params = [p.numel() for p in model.parameters() if p.requires_grad]
+    for item in params:
+        print(f'{item:>6}')
+    print(f'______\n{sum(params):>6}')
 
 if __name__ == '__main__':
     parser = HfArgumentParser((ModelArguments, TrainingArguments))
@@ -56,7 +61,10 @@ if __name__ == '__main__':
     #args = Argument()
     #print("HERE2\n")
     model = get_model()
+    #count_parameters(model)
     #print("HERE3\n")
+    
+    
     train_batchfier, test_batchfier = get_batchfier()
 
     trainer = CustomTrainer(
@@ -66,4 +74,5 @@ if __name__ == '__main__':
     )
     trainer.train()
     trainer.save_model(model_args.savepath)
+    
 
