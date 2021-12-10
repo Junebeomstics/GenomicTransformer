@@ -4,7 +4,7 @@ from torch.nn import MSELoss
 import math
 from model.ops import *
 from pytorch_transformers import WarmupLinearSchedule
-import apex
+#import apex
 from util.losses import *
 import os
 from transformers import Trainer
