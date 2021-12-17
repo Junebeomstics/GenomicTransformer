@@ -82,9 +82,17 @@ class CNNTransformerNet(nn.Module):
         emb = self.embeds(x)
         mask = self.get_mask(l).to(emb.device)
         out = emb
-        for i in range(self.n_layers):
-            block = self.main_nets[i]
-            out = block((out, None, mask))
+        #for i in range(self.n_layers):
+        #    block = self.main_nets[i]
+        #    out = block((out, None, mask))
+        #return out
+        for i,layer_module in enumerate(self.main_nets):
+            def create_custom_forward(module):
+                def custom_forward(*inputs):
+                    #return module(*inputs, past_key_value, output_attentions)
+                     return module(*inputs)
+                return custom_forward
+            out = torch.utils.checkpoint.checkpoint(create_custom_forward(layer_module),(out,None,mask))
         return out
 
     def get_mask(self, seq_len):

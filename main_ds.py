@@ -34,10 +34,10 @@ class ModelArguments:
     )
 
 def get_model():
-    #model = CNNTransformerNet(args.image_size, args.hidden_dim, args.projection_dim, args.n_heads,
-    #                           args.head_dim, args.n_layers, args.dropout_rate, args.dropatt_rate)
-    model = CNNTransformerNet(32, 128, 512, 4,
-                               32, 4, .1, 0.0)
+    model = CNNTransformerNet(args.image_size, args.hidden_dim, args.projection_dim,
+            args.n_heads, args.head_dim, args.n_layers, args.dropout_rate, args.dropatt_rate)
+    #model = CNNTransformerNet(32, 128, 512, 4,
+    #                           32, 4, .1, 0.0)
     initializer = Initializer('normal', 0.02, 0.1)
     initializer.initialize(model)
     return model
@@ -58,9 +58,9 @@ if __name__ == '__main__':
     print(model_args, training_args)
 
     #print("HERE\n")
-    #args = Argument()
+    args = Argument()
     #print("HERE2\n")
-    model = get_model()
+    model = get_model(args)
     #count_parameters(model)
     #print("HERE3\n")
     
