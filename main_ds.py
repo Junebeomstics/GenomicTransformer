@@ -32,12 +32,40 @@ class ModelArguments:
     savepath: str = field(
         default="./pretrained"
     )
+    '''
+    image_size: str = field(
+            default=32
+    )
+    hidden_dim: str = field(
+            default=128
+    )
+    projection_dim: str = field(
+            default=512
+    )
+    n_heads: str = field(
+            default=4
+    )
+    head_dim: str = field(
+            default=32
+    )
+    n_layers: str = field(
+            default=4
+    )
+    dropout_rate: str = field(
+            default=.1
+    )
+    dropatt_rate: str = field(
+            default=0.0
+    )
+    '''
+                                
+        
 
 def get_model():
-    model = CNNTransformerNet(args.image_size, args.hidden_dim, args.projection_dim,
-            args.n_heads, args.head_dim, args.n_layers, args.dropout_rate, args.dropatt_rate)
-    #model = CNNTransformerNet(32, 128, 512, 4,
-    #                           32, 4, .1, 0.0)
+    #model = CNNTransformerNet(args.image_size, args.hidden_dim, args.projection_dim,
+    #        args.n_heads, args.head_dim, args.n_layers, args.dropout_rate, args.dropatt_rate)
+    model = CNNTransformerNet(64, 128, 512, 4,
+                               32, 4, .1, 0.0)
     initializer = Initializer('normal', 0.02, 0.1)
     initializer.initialize(model)
     return model
@@ -55,12 +83,13 @@ def count_parameters(model):
 if __name__ == '__main__':
     parser = HfArgumentParser((ModelArguments, TrainingArguments))
     model_args, training_args = parser.parse_args_into_dataclasses()
+    #model_args: model_name_or_path,  모델 저장을 위한 경로
     print(model_args, training_args)
 
     #print("HERE\n")
-    args = Argument()
+    #args = Argument()
     #print("HERE2\n")
-    model = get_model(args)
+    model = get_model()
     #count_parameters(model)
     #print("HERE3\n")
     

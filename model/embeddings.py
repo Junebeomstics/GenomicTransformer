@@ -84,7 +84,7 @@ class MobileNetV2(nn.Module):
 
         # building first layer
         assert sample_size % 16 == 0.
-        input_channel = int(input_channel * width_mult)
+        input_channel = int(input_channel * width_mult) # input_channel: 4
         self.last_channel = int(last_channel * width_mult) if width_mult > 1.0 else last_channel
         self.features = [conv_bn(1, input_channel, (1, 2, 2))]
         # building inverted residual blocks

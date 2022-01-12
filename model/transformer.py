@@ -69,9 +69,11 @@ class CNNTransformerNet(nn.Module):
 
     def embeds(self, x):
         sizes = x.size()
-        x = x.contiguous().view(sizes[0] * sizes[1], *sizes[2:])
-        x = x[:, None]
-        emb = self.embedding(x)
+        x = x.contiguous().view(sizes[0] * sizes[1], *sizes[2:]) #why? #to make (num of volume) * (volume dim.)
+        x = torch.unsqueeze(x,1)
+        print('input to embedding layer:',x)
+        #x = x[:, None] # (b*l, w, h, a, 1)
+        emb = self.embedding(x) #MobileNetV2
         emb = self.dropout(emb)
         emb = emb.view(sizes[0], sizes[1], -1)
 
@@ -79,13 +81,15 @@ class CNNTransformerNet(nn.Module):
 
     def compute_hidden(self, x):
         l = x.size(1)
-        emb = self.embeds(x)
+        emb = self.embeds(x) #MobileNetV2
         mask = self.get_mask(l).to(emb.device)
         out = emb
         #for i in range(self.n_layers):
         #    block = self.main_nets[i]
         #    out = block((out, None, mask))
         #return out
+
+        #Gradient checkpointing
         for i,layer_module in enumerate(self.main_nets):
             def create_custom_forward(module):
                 def custom_forward(*inputs):
@@ -101,11 +105,14 @@ class CNNTransformerNet(nn.Module):
         return dec_mask[None]
 
     def forward(self, inp):
-        sizes = inp.size()
+        sizes = inp.size() 
+        # print('inp in transformer.py:, ',inp.shape) # ([2,382,64,64,64]) or ([1,382,64,64,64])
         out = self.compute_hidden(inp)
         out = out.view(sizes[0] * sizes[1], -1)
         out = out[..., None, None, None]
+        print('out:',out.shape) # torch.Size([382, 128, 1, 1, 1])
         final = self.out_net(out)
+        print('final:',final.shape) # torch.Size([382, 1, 64, 64, 64])
         final = final.view(*sizes)
         return final
 

@@ -17,7 +17,7 @@ class BrainDataset(IterableDataset):
 
     def __iter__(self):
         for i in range(len(self)):
-            data = torch.randn((383,48,48,48), dtype=torch.float16) # ((383, 97, 115, 95))
+            data = torch.randn((383,64,64,64), dtype=torch.float16) # ((383, 97, 115, 95))
             yield data[:-1], data[1:]
 
 class DummyDataset(IterableDataset):
