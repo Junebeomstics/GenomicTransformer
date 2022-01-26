@@ -32,6 +32,7 @@ class ModelArguments:
     savepath: str = field(
         default="./pretrained"
     )
+
     '''
     image_size: str = field(
             default=32

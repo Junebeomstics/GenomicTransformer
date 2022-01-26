@@ -71,7 +71,7 @@ class CNNTransformerNet(nn.Module):
         sizes = x.size()
         x = x.contiguous().view(sizes[0] * sizes[1], *sizes[2:]) #why? #to make (num of volume) * (volume dim.)
         x = torch.unsqueeze(x,1)
-        print('input to embedding layer:',x)
+        print('input to embedding layer:',x.shape)
         #x = x[:, None] # (b*l, w, h, a, 1)
         emb = self.embedding(x) #MobileNetV2
         emb = self.dropout(emb)

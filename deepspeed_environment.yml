@@ -164,7 +164,7 @@ dependencies:
   - zstd=1.4.9=haebb681_0
   - pip:
     - absl-py==1.0.0
-    - apex==0.1
+    - apex==0.9.9.dev0
     - blessings==1.7
     - cachetools==4.2.4
     - click==8.0.3
