@@ -9,7 +9,7 @@ from util.losses import *
 import os
 from transformers import Trainer
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
-
+from torch.profiler import profile, record_function, ProfilerActivity
 
 
 class CustomTrainer(Trainer):     
@@ -35,10 +35,14 @@ class CustomTrainer(Trainer):
         #inputs[0] = torch.reshape(inputs[0],(2,9,32,32,32))
         #inputs[1] = torch.reshape(inputs[1],(2,9,32,32,32))
         #print(torch.cuda.memory_summary(device=None, abbreviated=False))
-        print('input[0] to model: ', inputs[0].shape)
-        logits = model(inputs[0])
-        criterion = MSELoss()
-        loss = criterion(logits,inputs[-1])
+        
+        with profile(activities=[ProfilerActivity.CPU,ProfilerActivity.CUDA],profile_memory=True, record_shapes=True) as prof:
+            with record_function("model inference"):
+                logits = model(inputs[0])
+                criterion = MSELoss()
+                loss = criterion(logits,inputs[-1])
+
+        prof.export_chrom_trace("trace.json")
 
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.
