@@ -6,6 +6,36 @@ import pickle
 from abc import *
 from torch.utils.data.dataset import Dataset, IterableDataset
 import math
+import nibabel as nib
+from skimage.transform import resize
+
+class fMRIDataset(Dataset):
+    def __init__(self, file_path= str, transform=True):
+        sublist = os.listdir('/global/cfs/cdirs/m3898/rs_fmri_untar')
+        self.data=[]
+        for i in sublist:
+            file_dir='/global/cfs/cdirs/m3898/rs_fmri_untar'
+            file_name='/sub-'+i+'/ses-baselineYear1Arm1/func'+'/sub-'+i+'_ses-baselineYear1Arm1_task-rest_run-1_space-MNIPediatricAsym_cohort-4_res-2_desc-preproc_bold.nii.gz'
+            file_path = file_dir+file_name
+            if os.path.exists(file_path): 
+                data = nib.load(file_path)
+                if data.shape[0] == 383:
+                    self.data.append(file_path)
+            else:
+                continue
+
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self,idx):
+        ts = self.data[idx]
+        # nibabel
+        im = nib.load(ts)
+        resized_im =resize(im, (383, 64, 64, 64), order=1, mode='constant', preserve_range=True) 
+            
+        return resized_im
+        
 
 class BrainDataset(IterableDataset):
     def __init__(self):

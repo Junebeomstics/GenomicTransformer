@@ -72,9 +72,10 @@ def get_model():
     return model
 
 def get_batchfier():
-    train_batchfier = BrainDataset()
-    test_batchfier = BrainDataset()
+    train_batchfier = BrainDataset() #fMRIDataset() #BrainDataset
+    test_batchfier = BrainDataset() #fMRIDataset() #BrainDataset
     return train_batchfier, test_batchfier
+
 def count_parameters(model):
     params = [p.numel() for p in model.parameters() if p.requires_grad]
     for item in params:

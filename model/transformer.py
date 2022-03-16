@@ -71,7 +71,7 @@ class CNNTransformerNet(nn.Module):
         sizes = x.size()
         x = x.contiguous().view(sizes[0] * sizes[1], *sizes[2:]) #why? #to make (num of volume) * (volume dim.)
         x = torch.unsqueeze(x,1)
-        print('input to embedding layer:',x.shape)
+        #print('input to embedding layer:',x.shape)
         #x = x[:, None] # (b*l, w, h, a, 1)
         emb = self.embedding(x) #MobileNetV2
         emb = self.dropout(emb)
@@ -106,13 +106,13 @@ class CNNTransformerNet(nn.Module):
 
     def forward(self, inp):
         sizes = inp.size() 
-        # print('inp in transformer.py:, ',inp.shape) # ([2,382,64,64,64]) or ([1,382,64,64,64])
+        print('inp in transformer.py:, ',inp.shape) # ([2,382,64,64,64]) or ([1,382,64,64,64])
         out = self.compute_hidden(inp)
         out = out.view(sizes[0] * sizes[1], -1)
         out = out[..., None, None, None]
-        print('out:',out.shape) # torch.Size([382, 128, 1, 1, 1])
+        #print('out:',out.shape) # torch.Size([382, 128, 1, 1, 1])
         final = self.out_net(out)
-        print('final:',final.shape) # torch.Size([382, 1, 64, 64, 64])
+        #print('final:',final.shape) # torch.Size([382, 1, 64, 64, 64])
         final = final.view(*sizes)
         return final
 
